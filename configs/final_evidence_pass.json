@@ -1,0 +1,20 @@
+{
+  "version": "final_evidence_pass_v1",
+  "pca_component_grid": [1, 2, 4, 8, 16, 24, 32, 48, 64, 96, 128],
+  "ridge_alpha_grid": [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0],
+  "reference_damping_grid": [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0],
+  "reference_smoothing_grid": [0.0, 0.1, 1.0, 10.0, 100.0, 1000.0],
+  "shuffled_time_seed_start": 2026090201,
+  "shuffled_time_seed_count": 100,
+  "bootstrap_resamples": 10000,
+  "noise_levels_s": [0.0, 0.025, 0.05, 0.1],
+  "noise_nonzero_repetitions": 10,
+  "coverage_thresholds_km": [0.0, 0.1, 1.0, 5.0, 10.0],
+  "tie_tolerance": 1.0e-12,
+  "selection_contract": {
+    "full_input_primary": "validation mean node RMSE, then node MAE, model name, K, alpha_ridge",
+    "travel_time_only_sensitivity": "validation mean direct analytic cell-center all-cell RMSE, then MAE, model name, K, alpha_ridge",
+    "cell_native_sensitivity": "validation mean direct analytic cell-center all-cell RMSE, then MAE, model name, K, alpha_ridge",
+    "reference_ray": "validation mean direct analytic cell-center all-cell RMSE, then positive-coverage RMSE, travel-time RMSE, damping, smoothing"
+  }
+}

@@ -1,0 +1,598 @@
+# Central configuration for the tomobench project.
+# Units are expressed explicitly where practical to reduce hidden assumptions.
+
+project:
+  title: Tomographic Modeling of Subsurface Structures Using Machine Learning with Synthetic Seismic Data
+  repository_status: first_vertical_slice
+
+study_area:
+  coordinate_system: cartesian_km
+  x_range_km: [0.0, 100.0]
+  y_range_km: [0.0, 100.0]
+  z_range_km: [0.0, 30.0]
+  surface_elevation_km: 0.0
+  margin_km: 5.0
+
+station_generation:
+  default_mode: random
+  supported_modes: [random, grid]
+  station_count: 49
+  random_configuration_count: 10
+  grid_rows: 7
+  grid_cols: 7
+  station_elevation_km: 0.0
+
+earthquake_generation:
+  default_mode: random
+  supported_modes: [random, clustered, fault_based]
+  event_count: 1000
+  depth_range_km: [1.0, 29.0]
+  clustered:
+    cluster_count: 2
+    cluster_spread_km: 8.0
+  fault_based:
+    strike_deg: 45.0
+    dip_deg: 70.0
+    length_km: 40.0
+    width_km: 15.0
+
+velocity_model_generation:
+  default_scenario: layered
+  supported_scenarios: [layered, block_anomaly, faulted, salt_dome, dyke_intrusion]
+  grid_spacing_km: 1.0
+  velocity_bounds_km_per_s: [3.0, 8.0]
+  layered:
+    layer_count: 5
+    depth_boundaries_km: [0.0, 5.0, 12.0, 18.0, 24.0, 30.0]
+    velocities_km_per_s: [4.0, 5.0, 6.0, 6.8, 7.4]
+  block_anomaly:
+    center_km: [50.0, 50.0, 16.0]
+    size_km: [10.0, 10.0, 8.0]
+    velocity_delta_km_per_s: 0.6
+  faulted:
+    fault_x_km: 50.0
+    fault_y_km: 50.0
+    strike_deg: 90.0
+    dip_deg: 70.0
+    dip_direction: positive_normal
+    positive_side: greater_equal
+    velocity_offset_km_per_s: 0.4
+  salt_dome:
+    center_km: [50.0, 50.0, 7.0]
+    radii_km: [8.0, 8.0, 5.0]
+    body_velocity_km_per_s: 5.6
+  dyke_intrusion:
+    center_km: [50.0, 50.0, 15.0]
+    strike_deg: 0.0
+    length_km: 32.0
+    width_km: 3.0
+    top_depth_km: 4.0
+    bottom_depth_km: 26.0
+    body_velocity_km_per_s: 6.8
+
+simulation:
+  phase: P
+  method: pseudo_bending_3d
+  supported_methods:
+    - straight_line_layered_placeholder
+    - layered_ray_tracing
+    - eikonal_3d_first_arrival_prototype
+    - pseudo_bending_3d
+  allow_curved_rays: true
+  first_arrival_only: true
+  numerical_tolerance: 1.0e-6
+  assumptions:
+    - Targets first-arrival P-wave travel times only for synthetic velocity models.
+    - Pseudo-bending 3D is the default paper-facing simulator for current synthetic observation generation.
+    - Existing 1D layered methods remain available for controlled baseline comparisons.
+    - The eikonal prototype remains available only as a graph-based Cartesian-grid benchmark/comparison approximation, not as the default data-generation method.
+    - The pseudo-bending 3D method uses Snell-law bending across horizontal layers and explicit geological-interface crossings without smoothed trilinear velocity interpolation.
+    - Reflections, converted phases, scattering, attenuation, finite-frequency effects, full waveform modeling, amplitude modeling, complex source mechanisms, GPU acceleration, and real-data validation are outside the current scope.
+
+eikonal_solver:
+  grid_spacing_km: 5.0
+  x_grid_spacing_km: 5.0
+  y_grid_spacing_km: 5.0
+  z_grid_spacing_km: 2.5
+  connectivity: 26
+  interpolation: nearest
+  max_grid_nodes: 100000
+  benchmark_connectivities: [6, 18, 26]
+  benchmark_grid_spacings_km: [10.0, 5.0, 2.5]
+  runtime_repeat_count: 1
+
+pseudo_bending_solver:
+  initial_ray_point_count: 5
+  max_ray_point_count: 65
+  max_iterations_per_level: 30
+  convergence_tolerance_s: 1.0e-5
+  perturbation_step_km: 0.25
+  min_perturbation_step_km: 0.001
+  max_point_move_km: 2.5
+  finite_difference_step_km: 0.1
+  velocity_interpolation: piecewise_constant_interfaces
+  boundary_handling: clamp_to_model_domain
+
+dataset_export:
+  base_dir: outputs/datasets
+  schema_version: 0.1.0
+  export_formats: [csv, parquet]
+  include_metadata_columns: true
+
+machine_learning:
+  target_representation: velocity_grid
+  target_grid:
+    representation: fixed_shape_cartesian_velocity_grid_3d
+    value_field: p_velocity_km_per_s
+    value_semantics: absolute_velocity
+    value_location: node_centered
+    flattening_order: x_fastest_index_ix_plus_nx_times_iy_plus_ny_times_iz
+    scenario_batch: [layered, block_anomaly, faulted]
+  first_target_batch:
+    batch_id: first_ml_target_batch_v1
+    scenarios: [layered, block_anomaly, faulted]
+    manifest_path: outputs/datasets/ml_targets/first_ml_target_batch_v1/manifest.json
+  first_supervised_pairing:
+    pairing_id: first_ml_supervised_pairs_v1
+    scenarios: [layered, block_anomaly, faulted]
+    simulation_method: pseudo_bending_3d
+    manifest_path: outputs/datasets/ml_supervised/first_ml_supervised_pairs_v1/manifest.json
+  expanded_pairing:
+    batch_id: first_ml_expanded_pairs_v1
+    simulation_method: pseudo_bending_3d
+    manifest_path: outputs/datasets/ml_supervised/first_ml_expanded_pairs_v1/manifest.json
+    cases:
+      - case_id: layered_reference
+        scenario: layered
+      - case_id: block_anomaly_reference
+        scenario: block_anomaly
+      - case_id: block_anomaly_shallow
+        scenario: block_anomaly
+        block_anomaly_center_km: [50.0, 50.0, 10.0]
+        block_anomaly_size_km: [10.0, 10.0, 6.0]
+        block_anomaly_velocity_delta_km_per_s: 0.5
+      - case_id: block_anomaly_offset
+        scenario: block_anomaly
+        block_anomaly_center_km: [60.0, 40.0, 20.0]
+        block_anomaly_size_km: [12.0, 8.0, 8.0]
+        block_anomaly_velocity_delta_km_per_s: 0.4
+      - case_id: faulted_reference
+        scenario: faulted
+      - case_id: faulted_west_shift
+        scenario: faulted
+        fault_x_km: 40.0
+        fault_y_km: 50.0
+        fault_strike_deg: 90.0
+        fault_dip_deg: 70.0
+        fault_dip_direction: positive_normal
+        fault_positive_side: greater_equal
+        fault_velocity_offset_km_per_s: 0.4
+      - case_id: faulted_east_shift
+        scenario: faulted
+        fault_x_km: 60.0
+        fault_y_km: 50.0
+        fault_strike_deg: 90.0
+        fault_dip_deg: 70.0
+        fault_dip_direction: positive_normal
+        fault_positive_side: less_equal
+        fault_velocity_offset_km_per_s: 0.35
+      - case_id: salt_dome_reference
+        scenario: salt_dome
+      - case_id: salt_dome_shallow
+        scenario: salt_dome
+        salt_dome_center_km: [50.0, 50.0, 7.0]
+        salt_dome_radii_km: [8.0, 8.0, 5.0]
+        salt_dome_body_velocity_km_per_s: 5.6
+      - case_id: salt_dome_offset
+        scenario: salt_dome
+        salt_dome_center_km: [62.0, 42.0, 8.0]
+        salt_dome_radii_km: [7.0, 8.0, 5.0]
+        salt_dome_body_velocity_km_per_s: 5.5
+      - case_id: dyke_intrusion_reference
+        scenario: dyke_intrusion
+      - case_id: dyke_intrusion_narrow
+        scenario: dyke_intrusion
+        dyke_intrusion_center_km: [50.0, 50.0, 15.0]
+        dyke_intrusion_strike_deg: 0.0
+        dyke_intrusion_length_km: 30.0
+        dyke_intrusion_width_km: 3.0
+        dyke_intrusion_top_depth_km: 5.0
+        dyke_intrusion_bottom_depth_km: 24.0
+        dyke_intrusion_body_velocity_km_per_s: 6.8
+      - case_id: dyke_intrusion_offset
+        scenario: dyke_intrusion
+        dyke_intrusion_center_km: [38.0, 58.0, 15.0]
+        dyke_intrusion_strike_deg: 25.0
+        dyke_intrusion_length_km: 28.0
+        dyke_intrusion_width_km: 4.0
+        dyke_intrusion_top_depth_km: 6.0
+        dyke_intrusion_bottom_depth_km: 25.0
+        dyke_intrusion_body_velocity_km_per_s: 6.7
+  observation_pairing:
+    batch_id: observation_full_grid_pairs_v1
+    simulation_method: pseudo_bending_3d
+    manifest_path: outputs/datasets/ml_supervised/observation_full_grid_pairs_v1/manifest.json
+    station_count: 16
+    earthquake_count: 24
+    grid_rows: 4
+    grid_cols: 4
+    geometry_profiles:
+      - profile_id: random_a
+        station_generator_mode: random
+        station_seed: 1101
+        earthquake_seed: 2101
+      - profile_id: random_b
+        station_generator_mode: random
+        station_seed: 1102
+        earthquake_seed: 2102
+      - profile_id: grid_a
+        station_generator_mode: grid
+        earthquake_seed: 2103
+      - profile_id: random_c
+        station_generator_mode: random
+        station_seed: 1103
+        earthquake_seed: 2104
+      - profile_id: grid_b
+        station_generator_mode: grid
+        earthquake_seed: 2105
+    families:
+      - scenario: layered
+        geometry_profile_ids: [random_a, random_b, grid_a, random_c, grid_b]
+        parameter_variants:
+          - variant_id: reference
+          - variant_id: shallow_fast
+            layered_velocities_km_per_s: [4.2, 5.2, 6.0, 6.8, 7.4]
+          - variant_id: mid_slow
+            layered_velocities_km_per_s: [4.0, 4.8, 5.7, 6.6, 7.3]
+          - variant_id: deep_fast
+            layered_velocities_km_per_s: [4.0, 5.0, 6.1, 7.0, 7.6]
+      - scenario: block_anomaly
+        geometry_profile_ids: [random_a, random_b, grid_a, random_c, grid_b]
+        parameter_variants:
+          - variant_id: reference
+          - variant_id: shallow
+            block_anomaly_center_km: [50.0, 50.0, 10.0]
+            block_anomaly_size_km: [10.0, 10.0, 6.0]
+            block_anomaly_velocity_delta_km_per_s: 0.5
+          - variant_id: offset
+            block_anomaly_center_km: [60.0, 40.0, 20.0]
+            block_anomaly_size_km: [12.0, 8.0, 8.0]
+            block_anomaly_velocity_delta_km_per_s: 0.4
+          - variant_id: compact_fast
+            block_anomaly_center_km: [42.0, 58.0, 18.0]
+            block_anomaly_size_km: [8.0, 8.0, 6.0]
+            block_anomaly_velocity_delta_km_per_s: 0.55
+      - scenario: faulted
+        geometry_profile_ids: [random_a, random_b, grid_a, random_c, grid_b]
+        parameter_variants:
+          - variant_id: reference
+          - variant_id: west_shift
+            fault_x_km: 40.0
+            fault_y_km: 50.0
+            fault_strike_deg: 90.0
+            fault_dip_deg: 70.0
+            fault_dip_direction: positive_normal
+            fault_positive_side: greater_equal
+            fault_velocity_offset_km_per_s: 0.4
+          - variant_id: east_shift
+            fault_x_km: 60.0
+            fault_y_km: 50.0
+            fault_strike_deg: 90.0
+            fault_dip_deg: 70.0
+            fault_dip_direction: positive_normal
+            fault_positive_side: less_equal
+            fault_velocity_offset_km_per_s: 0.35
+          - variant_id: strong_offset
+            fault_x_km: 52.0
+            fault_y_km: 50.0
+            fault_strike_deg: 90.0
+            fault_dip_deg: 70.0
+            fault_dip_direction: positive_normal
+            fault_positive_side: greater_equal
+            fault_velocity_offset_km_per_s: 0.5
+      - scenario: salt_dome
+        geometry_profile_ids: [random_a, random_b, grid_a, random_c, grid_b]
+        parameter_variants:
+          - variant_id: reference
+          - variant_id: shallow
+            salt_dome_center_km: [50.0, 50.0, 7.0]
+            salt_dome_radii_km: [8.0, 8.0, 5.0]
+            salt_dome_body_velocity_km_per_s: 5.6
+          - variant_id: offset
+            salt_dome_center_km: [62.0, 42.0, 8.0]
+            salt_dome_radii_km: [7.0, 8.0, 5.0]
+            salt_dome_body_velocity_km_per_s: 5.5
+          - variant_id: compact
+            salt_dome_center_km: [48.0, 54.0, 6.5]
+            salt_dome_radii_km: [6.0, 6.0, 4.5]
+            salt_dome_body_velocity_km_per_s: 5.7
+      - scenario: dyke_intrusion
+        geometry_profile_ids: [random_a, random_b, grid_a, random_c, grid_b]
+        parameter_variants:
+          - variant_id: reference
+          - variant_id: narrow
+            dyke_intrusion_center_km: [50.0, 50.0, 15.0]
+            dyke_intrusion_strike_deg: 0.0
+            dyke_intrusion_length_km: 30.0
+            dyke_intrusion_width_km: 3.0
+            dyke_intrusion_top_depth_km: 5.0
+            dyke_intrusion_bottom_depth_km: 24.0
+            dyke_intrusion_body_velocity_km_per_s: 6.8
+          - variant_id: offset
+            dyke_intrusion_center_km: [38.0, 58.0, 15.0]
+            dyke_intrusion_strike_deg: 25.0
+            dyke_intrusion_length_km: 28.0
+            dyke_intrusion_width_km: 4.0
+            dyke_intrusion_top_depth_km: 6.0
+            dyke_intrusion_bottom_depth_km: 25.0
+            dyke_intrusion_body_velocity_km_per_s: 6.7
+          - variant_id: long_tilted
+            dyke_intrusion_center_km: [56.0, 46.0, 15.0]
+            dyke_intrusion_strike_deg: 40.0
+            dyke_intrusion_length_km: 34.0
+            dyke_intrusion_width_km: 4.0
+            dyke_intrusion_top_depth_km: 4.0
+            dyke_intrusion_bottom_depth_km: 27.0
+            dyke_intrusion_body_velocity_km_per_s: 6.9
+  paper_pseudo_bending_observation_corpus:
+    batch_id: paper_pseudo_bending_observation_pairs_v1
+    simulator: pseudo_bending_3d
+    simulation_method: pseudo_bending_3d
+    manifest_path: outputs/datasets/ml_supervised/paper_pseudo_bending_observation_pairs_v1/manifest.json
+    inherited_parameter_variants_from: observation_pairing
+    inherited_geometry_profiles_from: observation_pairing
+    inherit_templates_from: observation_pairing
+    station_count: 16
+    earthquake_count: 24
+    grid_rows: 4
+    grid_cols: 4
+    random_seeds:
+      global: 42
+      velocity_models: 303
+      station_profile_seeds: [1101, 1102, 1103]
+      earthquake_profile_seeds: [2101, 2102, 2103, 2104, 2105]
+    geological_families:
+      - layered
+      - block_anomaly
+      - faulted
+      - salt_dome
+      - dyke_intrusion
+  first_baseline:
+    experiment_id: first_ml_mean_target_baseline_v1
+    model_name: mean_target_regressor
+    pairing_manifest_path: outputs/datasets/ml_supervised/first_ml_supervised_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/first_ml_mean_target_baseline_v1
+  feature_baseline:
+    experiment_id: first_ml_feature_distance_baseline_v1
+    model_name: feature_distance_weighted_target_regressor
+    pairing_manifest_path: outputs/datasets/ml_supervised/first_ml_supervised_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/first_ml_feature_distance_baseline_v1
+  reduced_target_baseline:
+    experiment_id: first_ml_reduced_target_ridge_baseline_v1
+    model_name: ridge_reduced_target_regressor
+    pairing_manifest_path: outputs/datasets/ml_supervised/first_ml_supervised_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/first_ml_reduced_target_ridge_baseline_v1
+    ridge_alpha: 1.0
+  observation_baseline:
+    experiment_id: observation_pca_ridge_full_grid_v1
+    model_name: pca_ridge_observation_regressor
+    pairing_manifest_path: outputs/datasets/ml_supervised/observation_full_grid_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/observation_pca_ridge_full_grid_v1
+    pca_component_count: 4
+    ridge_alpha: 0.1
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    split_strategy: family_stratified
+  observation_linear_baseline:
+    experiment_id: observation_pca_linear_full_grid_v1
+    model_name: pca_linear_observation_regressor
+    pairing_manifest_path: outputs/datasets/ml_supervised/observation_full_grid_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/observation_pca_linear_full_grid_v1
+    pca_component_count: 4
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    split_strategy: family_stratified
+  observation_mlp_baseline:
+    experiment_id: observation_pca_mlp_full_grid_v1
+    model_name: pca_mlp_observation_regressor
+    pairing_manifest_path: outputs/datasets/ml_supervised/observation_full_grid_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/observation_pca_mlp_full_grid_v1
+    pca_component_count: 6
+    hidden_width: 8
+    epoch_count: 60
+    learning_rate: 0.03
+    l2_alpha: 0.001
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    split_strategy: family_stratified
+  observation_random_forest_baseline:
+    experiment_id: observation_pca_random_forest_full_grid_v1
+    model_name: pca_random_forest_observation_regressor
+    pairing_manifest_path: outputs/datasets/ml_supervised/observation_full_grid_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/observation_pca_random_forest_full_grid_v1
+    pca_component_count: 4
+    tree_count: 21
+    max_depth: 6
+    min_samples_leaf: 2
+    max_feature_count: 64
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    split_strategy: family_stratified
+  observation_tuning:
+    experiment_id: observation_pca_ridge_tuning_v1
+    pairing_manifest_path: outputs/datasets/ml_supervised/observation_full_grid_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/observation_pca_ridge_tuning_v1
+    pca_component_counts: [4, 6, 8]
+    ridge_alphas: [0.1, 1.0, 10.0]
+    split_random_seeds: [404, 505, 606]
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    split_strategy: family_stratified
+  observation_comparison:
+    experiment_id: observation_ml_comparison_v1
+    pairing_manifest_path: outputs/datasets/ml_supervised/observation_full_grid_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/observation_ml_comparison_v1
+    selected_models:
+      - pca_linear_observation_regressor
+      - pca_ridge_observation_regressor
+      - pca_random_forest_observation_regressor
+      - pca_mlp_observation_regressor
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    split_strategy: family_stratified
+  paper_pseudo_bending_ml_suite:
+    experiment_id: paper_pseudo_bending_ml_suite_v1
+    input_manifest_path: outputs/datasets/ml_supervised/paper_pseudo_bending_observation_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/paper_pseudo_bending_ml_suite_v1
+    selected_models:
+      - pca_linear_observation_regressor
+      - pca_ridge_observation_regressor
+      - pca_random_forest_observation_regressor
+      - pca_mlp_observation_regressor
+    split_protocols:
+      - fixed_family_stratified
+      - repeated_seeded_family_stratified
+      - leave_one_family_out
+    fixed_split_seed: 404
+    repeated_split_seeds: [404, 505, 606]
+    leave_one_family_out: true
+    travel_time_noise_levels_s: [0.0, 0.025, 0.05, 0.10]
+    noise_random_seed: 909
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    best_model_selection_metric: fixed_validation_rmse_then_repeated_validation_rmse
+  paper_pseudo_bending_ml_strengthened:
+    experiment_id: paper_pseudo_bending_ml_strengthened_v1
+    input_manifest_path: outputs/datasets/ml_supervised/paper_pseudo_bending_observation_pairs_v1/manifest.json
+    baseline_suite_summary_path: outputs/generated/ml_baselines/paper_pseudo_bending_ml_suite_v1/suite_summary.json
+    baseline_audit_summary_path: outputs/generated/ml_baselines/paper_pseudo_bending_ml_suite_v1/audit_summary.json
+    output_dir: outputs/generated/ml_baselines/paper_pseudo_bending_ml_strengthened_v1
+    candidate_models:
+      - pca_linear_observation_regressor
+      - pca_ridge_observation_regressor
+    pca_component_counts: [4, 6, 8]
+    ridge_alphas: [0.01, 0.1, 1.0]
+    fixed_split_seed: 404
+    repeated_split_seeds: [404, 505, 606]
+    travel_time_noise_levels_s: [0.0, 0.025, 0.05, 0.10]
+    noise_random_seed: 909
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+    best_model_selection_metric: worst_leave_one_family_out_rmse_then_repeated_validation_rmse
+  paper_pseudo_bending_faulted_generalization:
+    experiment_id: paper_pseudo_bending_faulted_generalization_v1
+    input_manifest_path: outputs/datasets/ml_supervised/paper_pseudo_bending_observation_pairs_v1/manifest.json
+    baseline_suite_summary_path: outputs/generated/ml_baselines/paper_pseudo_bending_ml_suite_v1/suite_summary.json
+    baseline_audit_summary_path: outputs/generated/ml_baselines/paper_pseudo_bending_ml_suite_v1/audit_summary.json
+    strengthened_summary_path: outputs/generated/ml_baselines/paper_pseudo_bending_ml_strengthened_v1/strengthened_summary.json
+    output_dir: outputs/generated/ml_baselines/paper_pseudo_bending_faulted_generalization_v1
+    target_family: faulted
+    model_name: pca_linear_observation_regressor
+    pca_component_count: 4
+    ridge_alpha:
+    fixed_split_seed: 404
+    repeated_split_seeds: [404, 505, 606]
+    derived_feature_set: directional_slowness_v1
+    recommendation_policy: stop_after_one_bounded_intervention
+    observation_fields:
+      - source_x_km
+      - source_y_km
+      - source_z_km
+      - receiver_x_km
+      - receiver_y_km
+      - receiver_z_km
+      - path_length_km
+      - travel_time_s
+  expanded_baseline_evaluation:
+    pairing_manifest_path: outputs/datasets/ml_supervised/first_ml_expanded_pairs_v1/manifest.json
+    output_dir: outputs/generated/ml_baselines/first_ml_expanded_pairs_v1
+    mean_target_experiment_id: expanded_ml_mean_target_baseline_v1
+    feature_distance_experiment_id: expanded_ml_feature_distance_baseline_v1
+    reduced_target_experiment_id: expanded_ml_reduced_target_ridge_baseline_v1
+    summary_experiment_id: expanded_ml_baseline_suite_v1
+  baseline_models: [mean_target_regressor, feature_distance_weighted_target_regressor, ridge_reduced_target_regressor, linear_regression, random_forest]
+  advanced_models: [mlp]
+  train_fraction: 0.70
+  validation_fraction: 0.15
+  test_fraction: 0.15
+  metrics: [mae, rmse]
+
+random_seeds:
+  global: 42
+  stations: 101
+  earthquakes: 202
+  velocity_models: 303
+  machine_learning: 404
+
+outputs:
+  generated_base_dir: outputs/generated
+  figures_dir: outputs/figures
+  benchmarks_dir: outputs/benchmarks
+  experiment_notes_dir: wiki/experiments
+
+vertical_slice:
+  experiment_id: first_vertical_slice
+  scenario_id: first_vertical_slice_scenario
+  station_configuration_id: first_vertical_slice_random_stations
+  earthquake_configuration_id: first_vertical_slice_random_earthquakes
+  velocity_model_id: first_vertical_slice_layered_velocity
+  simulation_id: first_vertical_slice_travel_times
+  dataset_id: first_vertical_slice_source_receiver_dataset
+  station_count: 12
+  earthquake_count: 20

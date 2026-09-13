@@ -1,0 +1,60 @@
+cff-version: 1.2.0
+message: If you use this software, please cite both the article and this repository.
+title: tomobench
+abstract: >-
+  Reference implementation of the discrete synthetic benchmark for PCA-ridge and
+  Reference-ray 3-D velocity reconstruction from first-arrival travel times.
+type: software
+authors:
+  - family-names: Postacı
+    given-names: Tuğçe Can
+    orcid: https://orcid.org/0000-0003-1942-4797
+    affiliation: >-
+      Department of Geophysical and Geotechnical Survey Operations, Turkish Petroleum Offshore Technology Center (TP-OTC), 06530 Ankara, Türkiye
+  - family-names: Barış
+    given-names: Şerif
+    orcid: https://orcid.org/0000-0001-8888-2295
+    affiliation: >-
+      Department of Geophysics, Engineering Faculty A, Kocaeli University, Umuttepe Campus, 41380 Izmit, Türkiye
+  - family-names: Kaypak
+    given-names: Bülent
+    orcid: https://orcid.org/0000-0003-4650-9171
+    affiliation: >-
+      Department of Geophysical Engineering, Faculty of Engineering, Ankara University, 50. Yıl Campus, 06830 Ankara, Türkiye
+  - family-names: Tunç
+    given-names: Berna
+    orcid: https://orcid.org/0000-0002-0746-8701
+    affiliation: >-
+      Department of Geophysics, Engineering Faculty A, Kocaeli University, Umuttepe Campus, 41380 Izmit, Türkiye
+license: CC-BY-4.0
+repository-code: https://github.com/tcpostaci/tomobench
+references:
+  - type: article
+    title: >-
+      A Discrete Synthetic Benchmark for PCA-Ridge and Reference-Ray 3-D Velocity Reconstruction from First-Arrival Travel Times
+    authors:
+      - family-names: Postacı
+        given-names: Tuğçe Can
+      - family-names: Barış
+        given-names: Şerif
+      - family-names: Kaypak
+        given-names: Bülent
+      - family-names: Tunç
+        given-names: Berna
+    journal: Applied Sciences
+    year: 2026
+    # doi: added here once MDPI assigns it at publication
+  - type: dataset
+    title: >-
+      Reproducibility archive for: A Discrete Synthetic Benchmark for PCA-Ridge and Reference-Ray 3-D Velocity Reconstruction from First-Arrival Travel Times
+    authors:
+      - family-names: Postacı
+        given-names: Tuğçe Can
+      - family-names: Barış
+        given-names: Şerif
+      - family-names: Kaypak
+        given-names: Bülent
+      - family-names: Tunç
+        given-names: Berna
+    year: 2026
+    doi: 10.5281/zenodo.22733701

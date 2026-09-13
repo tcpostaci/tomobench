@@ -1,0 +1,4 @@
+# Check every text file out with LF on all platforms. The reproducibility archive
+# pins the same sources by SHA256 with LF endings, so this keeps a clone of this
+# repository byte-identical to the archive's snapshot rather than merely equivalent.
+* text=auto eol=lf
