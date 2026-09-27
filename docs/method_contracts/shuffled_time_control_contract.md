@@ -27,6 +27,7 @@ The comparison is therefore interpreted as a case-level association test and doe
 geological timing contribution or establish causal geological information. It is not a physical inversion
 method and is interpreted separately from the no-time, geometry-only, and distance-only zero-target-information
 controls. The result is conditional on the predefined deterministic permutation used by the benchmark; the
-target-level bootstrap interval does not include variability across alternative shuffle realizations. The
-separate 100-seed sensitivity, summarized in
-`records/shuffled_time/multiseed_direct_cell_overall_summary.json`, characterizes that variability.
+target-level bootstrap interval does not include variability across alternative shuffle realizations. A
+100-seed sensitivity summarized in `records/shuffled_time/` was withdrawn in the revision: an indexing error
+in its script meant it did not reassign the travel-time vectors, so it does not characterize that
+variability. Its records are retained but not cited.

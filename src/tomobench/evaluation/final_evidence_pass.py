@@ -1258,6 +1258,37 @@ def _figure_style() -> None:
     mpl.rcParams.update({"font.size": 9, "axes.titlesize": 10, "axes.labelsize": 9, "legend.fontsize": 8, "figure.dpi": 150, "savefig.dpi": 300})
 
 
+# The MDPI documents place every figure 5.46 in wide. Figures drawn 12-15.5 in
+# wide at 9 pt printed their labels at about 3 pt (Reviewer 1: figures "must be
+# improved"). These four are drawn close to the placed width instead, so 8 pt
+# type prints at 7-9 pt. PRINT_WIDTH_IN is that placed width.
+PRINT_WIDTH_IN = 5.46
+
+
+_PRINT_STYLE = {"font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8, "legend.fontsize": 7,
+                "xtick.labelsize": 7, "ytick.labelsize": 7, "figure.dpi": 150, "savefig.dpi": 400}
+# rcParams in force before _print_figure_style, put back by _save_print_figure. The
+# style is global state: left in place it would reach every figure drawn after a
+# print-width one, and _figure_style does not reset the tick sizes.
+_PRE_PRINT_STYLE: dict[str, Any] = {}
+
+
+def _print_figure_style() -> None:
+    import matplotlib as mpl
+
+    _PRE_PRINT_STYLE.clear()
+    _PRE_PRINT_STYLE.update({key: mpl.rcParams[key] for key in _PRINT_STYLE})
+    mpl.rcParams.update(_PRINT_STYLE)
+
+
+def _save_print_figure(figure: Any, path: Path) -> None:
+    import matplotlib as mpl
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, bbox_inches="tight", pad_inches=0.03)
+    mpl.rcParams.update(_PRE_PRINT_STYLE)
+
+
 def _save_figure(figure: Any, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, bbox_inches="tight")
@@ -1286,27 +1317,28 @@ def _plot_workflow(out: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
     from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
-    _figure_style()
-    fig, ax = plt.subplots(figsize=(12, 5.5))
+    _print_figure_style()
+    fig, ax = plt.subplots(figsize=(6.0, 2.9))
     ax.set_xlim(0, 12); ax.set_ylim(0, 6); ax.axis("off")
+    # The labels are wrapped to fit boxes drawn at print width. The figure has no
+    # title: the caption carries it, and the width is better spent on the boxes.
     boxes = {
-        "target": (0.2, 2.35, 2.0, 1.3, "Common synthetic\ntarget + acquisition"),
-        "obs": (2.8, 2.35, 2.0, 1.3, "Common observed\ntravel times"),
-        "full": (5.55, 4.0, 2.5, 1.25, "Full-input PCA-ridge\ncoordinates + distance + time"),
-        "ray": (5.55, 1.0, 2.5, 1.25, "Reference-ray baseline\nfixed $G_{\\mathrm{ref}}$ + regularization"),
-        "eval": (9.35, 2.35, 2.35, 1.3, "Direct analytic\ncell-center evaluation"),
+        "target": (0.05, 2.25, 2.1, 1.5, "Common\nsynthetic\ntarget +\nacquisition"),
+        "obs": (2.65, 2.25, 2.1, 1.5, "Common\nobserved\ntravel times"),
+        "full": (5.35, 3.95, 2.9, 1.5, "Full-input PCA-ridge\ncoordinates +\ndistance + time"),
+        "ray": (5.35, 0.55, 2.9, 1.5, "Reference-ray\nbaseline: fixed $G_{\\mathrm{ref}}$\n+ regularization"),
+        "eval": (9.3, 2.25, 2.65, 1.5, "Direct analytic\ncell-center\nevaluation"),
     }
     for key, (x, y, w, h, label) in boxes.items():
         color = "#dbeafe" if key in {"target", "obs", "eval"} else "#fef3c7"
-        patch = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.04,rounding_size=0.08", facecolor=color, edgecolor="#1f2937", linewidth=1.2)
-        ax.add_patch(patch); ax.text(x + w / 2, y + h / 2, label, ha="center", va="center", linespacing=1.3)
-    arrows = [((2.2, 3.0), (2.8, 3.0)), ((4.8, 3.0), (5.55, 4.55)), ((4.8, 3.0), (5.55, 1.65)), ((8.05, 4.55), (9.35, 3.25)), ((8.05, 1.65), (9.35, 2.75))]
+        patch = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.04,rounding_size=0.08", facecolor=color, edgecolor="#1f2937", linewidth=1.0)
+        ax.add_patch(patch); ax.text(x + w / 2, y + h / 2, label, ha="center", va="center", linespacing=1.25)
+    arrows = [((2.15, 3.0), (2.65, 3.0)), ((4.75, 3.0), (5.35, 4.7)), ((4.75, 3.0), (5.35, 1.3)), ((8.25, 4.7), (9.3, 3.35)), ((8.25, 1.3), (9.3, 2.65))]
     for start, end in arrows:
-        ax.add_patch(FancyArrowPatch(start, end, arrowstyle="-|>", mutation_scale=14, linewidth=1.1, color="#374151"))
-    ax.text(6.8, 5.55, "Estimator branch", ha="center", va="center", color="#92400e")
-    ax.text(6.8, 0.42, "Independent comparator branch", ha="center", va="center", color="#92400e")
-    ax.set_title("Synthetic benchmark workflow: shared inputs, separate reconstruction branches, common endpoint", pad=10)
-    path = out / "figure_1_workflow.png"; _save_figure(fig, path); plt.close(fig)
+        ax.add_patch(FancyArrowPatch(start, end, arrowstyle="-|>", mutation_scale=11, linewidth=1.0, color="#374151"))
+    ax.text(6.8, 5.8, "Estimator branch", ha="center", va="center", color="#92400e")
+    ax.text(6.8, 0.2, "Independent comparator branch", ha="center", va="center", color="#92400e")
+    path = out / "figure_1_workflow.png"; _save_print_figure(fig, path); plt.close(fig)
     return {"png": path.as_posix()}
 
 
@@ -1462,7 +1494,7 @@ def _deterministic_structure_slice(case: ProductionCase) -> tuple[int, str, int]
 def _plot_structural_fields(node_native: Mapping[str, Any], test: Sequence[ProductionCase], out: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    _figure_style()
+    _print_figure_style()
     selected = _select_structural_cases(node_native, test)
     by_id = {case.target_id: case for case in test}
     all_cases = node_native["cases"]
@@ -1499,12 +1531,13 @@ def _plot_structural_fields(node_native: Mapping[str, Any], test: Sequence[Produ
     velocity_min = float(np.min([np.min(values) for values in velocity_values]))
     velocity_max = float(np.max([np.max(values) for values in velocity_values]))
     error_limit = max(float(np.max([np.max(np.abs(values)) for values in error_values])), 1.0e-6)
-    fig, axes = plt.subplots(2, 3, figsize=(13.8, 7.4), constrained_layout=True)
+    fig, axes = plt.subplots(2, 3, figsize=(6.4, 3.9), sharex=True, sharey=True, constrained_layout=True)
     truth_image = None
     error_image = None
     panel_titles = ("Truth", "Full-input PCA-ridge prediction", "Prediction − truth")
+    inset = {"facecolor": "#111827", "alpha": 0.6, "pad": 1.2, "linewidth": 0}
     for row_index, (item, case, y_index, fields) in enumerate(fields_by_case):
-        for column_index, (axis, field, title) in enumerate(zip(axes[row_index], fields, panel_titles, strict=True)):
+        for column_index, (axis, field) in enumerate(zip(axes[row_index], fields, strict=True)):
             image = axis.imshow(
                 field,
                 origin="upper",
@@ -1514,26 +1547,23 @@ def _plot_structural_fields(node_native: Mapping[str, Any], test: Sequence[Produ
                 vmax=error_limit if column_index == 2 else velocity_max,
                 extent=(0, 100, 30, 0),
             )
-            if column_index == 0:
+            if column_index < 2:
                 truth_image = image
-            if column_index == 2:
+            else:
                 error_image = image
-            axis.set_title(title)
-            axis.set_xlabel("x (km)")
-            axis.set_ylabel("depth z (km)")
             panel_label = chr(97 + row_index * 3 + column_index)
-            axis.text(0.02, 0.97, f"({panel_label})", transform=axis.transAxes, ha="left", va="top", color="white", fontsize=9, fontweight="bold", bbox={"facecolor": "#111827", "alpha": 0.55, "pad": 2.0})
-            axes[row_index, 0].set_ylabel(f"{item['quantile_label'].capitalize()}\n depth z (km)")
-        axes[row_index, 0].set_title(f"{panel_titles[0]}\n{_display_target_label(str(item['target_id']))}\nFull-input RMSE = {item['direct_cell_rmse_km_per_s']:.3f} km/s")
-        axes[row_index, 1].set_title(f"{panel_titles[1]}\ny={float(np.asarray(case.target_grid.y_coordinates_km[:-1])[y_index] + 0.5 * np.diff(case.target_grid.y_coordinates_km)[y_index]):.2f} km")
-        axes[row_index, 2].set_title(panel_titles[2])
+            axis.text(0.03, 0.94, f"({panel_label})", transform=axis.transAxes, ha="left", va="top", color="white", fontsize=7, fontweight="bold", bbox=inset)
+        axes[row_index, 0].set_ylabel(f"{item['quantile_label'].capitalize()}\n{_display_target_label(str(item['target_id']))}\nRMSE {item['direct_cell_rmse_km_per_s']:.3f} km/s\nz (km)")
+        axes[row_index, 1].text(0.97, 0.94, f"y = {item['display_y_km']:.2f} km", transform=axes[row_index, 1].transAxes, ha="right", va="top", color="white", fontsize=7, bbox=inset)
+    for column_index, title in enumerate(panel_titles):
+        axes[0, column_index].set_title(title)
+        axes[-1, column_index].set_xlabel("x (km)")
     if truth_image is not None:
-        fig.colorbar(truth_image, ax=axes[:, :2].ravel().tolist(), shrink=0.88, pad=0.02, label="P-wave velocity (km/s)")
+        fig.colorbar(truth_image, ax=axes[:, :2], orientation="horizontal", fraction=0.05, pad=0.03, aspect=40, label="P-wave velocity (km/s)")
     if error_image is not None:
-        fig.colorbar(error_image, ax=axes[:, 2].ravel().tolist(), shrink=0.88, pad=0.08, label="Prediction − truth (km/s)")
-    fig.suptitle("Structural-field comparison at deterministic quartile test targets", fontsize=12)
+        fig.colorbar(error_image, ax=axes[:, 2], orientation="horizontal", fraction=0.05, pad=0.03, aspect=20, label="Prediction − truth (km/s)")
     path = out / "figure_4_structural_fields.png"
-    _save_figure(fig, path)
+    _save_print_figure(fig, path)
     plt.close(fig)
     return {"png": path.as_posix()}
 
@@ -1582,7 +1612,7 @@ def _supplementary_structure_slice(case: ProductionCase) -> tuple[int, str, str]
 def _plot_supplementary_structure_slices(node_native: Mapping[str, Any], out: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    _figure_style()
+    _print_figure_style()
     selected = _select_supplementary_structure_cases(node_native["test"])
     selections: list[dict[str, Any]] = []
     slices: list[tuple[np.ndarray, np.ndarray | None, np.ndarray, str]] = []
@@ -1602,33 +1632,38 @@ def _plot_supplementary_structure_slices(node_native: Mapping[str, Any], out: Pa
     _write_json_local({"selection_population": "38 frozen test targets", "selection_rule": "one representative target per family, closest to that family's median direct analytic target mean, ties by target_hash", "family_order": list(FAMILY_ORDER), "common_slice_rule": "x-z slice at target-grid cell center nearest y=50 km", "structure_slice_rule": "family-specific deterministic analytic-mask intersection rule recorded per target", "selected": selections}, out / "figure_S1_selection.json")
     velocity_min = float(np.min([np.min(values[0]) for values in slices]))
     velocity_max = float(np.max([np.max(values[0]) for values in slices]))
-    fig, axes = plt.subplots(2, len(selected), figsize=(15.5, 6.1), constrained_layout=True)
+    # One row per family, the common slice left and the structure slice right.
+    # The common slice is at the same y for every target, so it goes in the
+    # column title; the structure slice's y varies and is printed in each panel.
+    common_ys = {round(selection["common_y_km"], 2) for selection in selections}
+    if len(common_ys) != 1:
+        raise ValueError("The common slice is expected at one y for every selected target.")
+    fig, axes = plt.subplots(len(selected), 2, figsize=(5.8, 6.9), sharex=True, sharey=True, constrained_layout=True)
+    inset = {"facecolor": "#111827", "alpha": 0.6, "pad": 1.2, "linewidth": 0}
     image = None
-    for column, (case, slice_data, selection) in enumerate(zip(selected, slices, selections, strict=True)):
+    for row, (case, slice_data, selection) in enumerate(zip(selected, slices, selections, strict=True)):
         common_field, _, structure_field, overlay_label = slice_data
         x_centers = np.asarray(case.target_grid.x_coordinates_km[:-1]) + 0.5 * np.diff(case.target_grid.x_coordinates_km)
         z_centers = np.asarray(case.target_grid.z_coordinates_km[:-1]) + 0.5 * np.diff(case.target_grid.z_coordinates_km)
-        for row, field in enumerate((common_field, structure_field)):
+        for column, field in enumerate((common_field, structure_field)):
             axis = axes[row, column]
             image = axis.imshow(field, origin="upper", aspect="auto", cmap="viridis", vmin=velocity_min, vmax=velocity_max, extent=(0, 100, 30, 0))
-            if row == 1 and slice_data[1] is not None and case.family != "layered":
+            if column == 1 and slice_data[1] is not None and case.family != "layered":
                 # The mask and image both represent target-cell centres.  Passing
                 # those coordinates explicitly keeps the outline on the displayed
                 # cell-centre field instead of treating array indices as domain edges.
-                axis.contour(x_centers, z_centers, slice_data[1].astype(float), levels=[0.5], colors="#111827", linewidths=0.8)
-            axis.set_title(f"{case.family.replace('_', ' ')}\ntarget {str(case.target_id).rpartition('_target_')[2] or case.target_id}", fontsize=8)
-            axis.set_xlabel("x (km)")
-            if column == 0:
-                axis.set_ylabel(("common y≈50 km\n" if row == 0 else "structure slice\n") + "depth z (km)")
-            if row == 0:
-                axis.text(0.02, 0.97, f"y={selection['common_y_km']:.2f} km", transform=axis.transAxes, ha="left", va="top", color="white", fontsize=7, bbox={"facecolor": "#111827", "alpha": 0.55, "pad": 1.5})
-            else:
-                axis.text(0.02, 0.97, f"y={selection['structure_y_km']:.2f} km", transform=axis.transAxes, ha="left", va="top", color="white", fontsize=7, bbox={"facecolor": "#111827", "alpha": 0.55, "pad": 1.5})
+                axis.contour(x_centers, z_centers, slice_data[1].astype(float), levels=[0.5], colors="#111827", linewidths=0.7)
+            if column == 1:
+                axis.text(0.98, 0.94, f"y = {selection['structure_y_km']:.2f} km", transform=axis.transAxes, ha="right", va="top", color="white", fontsize=7, bbox=inset)
+        axes[row, 0].set_ylabel(f"{case.family.replace('_', ' ')}\ntarget {str(case.target_id).rpartition('_target_')[2] or case.target_id}\nz (km)")
+    axes[0, 0].set_title(f"Common slice, y = {common_ys.pop():.2f} km")
+    axes[0, 1].set_title("Structure-intersecting slice")
+    for axis in axes[-1]:
+        axis.set_xlabel("x (km)")
     if image is not None:
-        fig.colorbar(image, ax=axes.ravel().tolist(), shrink=0.88, pad=0.02, label="P-wave velocity (km/s)")
-    fig.suptitle("Deterministic family slices of direct analytic target fields", fontsize=12)
+        fig.colorbar(image, ax=axes, orientation="horizontal", fraction=0.035, pad=0.02, aspect=40, label="P-wave velocity (km/s)")
     path = out / "figure_S1_structure_intersecting_slices.png"
-    _save_figure(fig, path)
+    _save_print_figure(fig, path)
     plt.close(fig)
     return {"png": path.as_posix(), "selection": (out / "figure_S1_selection.json").as_posix()}
 
@@ -1636,10 +1671,11 @@ def _plot_supplementary_structure_slices(node_native: Mapping[str, Any], out: Pa
 def _plot_noise_coverage(noise: Mapping[str, Any], coverage: Mapping[str, Any], out: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    _figure_style()
-    # Wider than the other figures on purpose: the two travel-time-only legend
-    # entries name different estimators and must be readable at print scale.
-    fig, (axis_noise, axis_coverage) = plt.subplots(1, 2, figsize=(14, 5.4), constrained_layout=True)
+    _print_figure_style()
+    # Stacked rather than side by side, so each panel gets the full print width
+    # and the two travel-time-only legend entries, which name different
+    # estimators, stay readable.
+    fig, (axis_noise, axis_coverage) = plt.subplots(2, 1, figsize=(5.6, 6.2), constrained_layout=True)
     colors = {"realistic_full": "#1d4ed8", "travel_time_only": "#b45309", "reference_ray": "#047857"}
     labels = {method: PUBLIC_METHOD_LABELS[method] for method in colors}
     # The two panels come from different records and the identifier
@@ -1661,12 +1697,11 @@ def _plot_noise_coverage(noise: Mapping[str, Any], coverage: Mapping[str, Any], 
         y = [float(row["rmse_mean_km_per_s"]) for row in rows]
         lo = [float(row["rmse_ci95_lower_km_per_s"]) for row in rows]
         hi = [float(row["rmse_ci95_upper_km_per_s"]) for row in rows]
-        axis_noise.plot(x, y, "o-", color=colors[method], label=noise_labels[method])
+        axis_noise.plot(x, y, "o-", ms=4, color=colors[method], label=noise_labels[method])
         axis_noise.fill_between(x, lo, hi, color=colors[method], alpha=0.12)
-    axis_noise.set_xlabel("Timing-noise SD (s)"); axis_noise.set_ylabel("Direct-cell RMSE (km/s)"); axis_noise.set_title("Matched timing-noise sensitivity"); axis_noise.grid(alpha=0.25)
-    axis_noise.margins(y=0.22)   # headroom so the legend does not cover the data
-    axis_noise.tick_params(labelsize=9)
-    axis_noise.legend(fontsize=9)
+    axis_noise.set_xlabel("Timing-noise SD (s)"); axis_noise.set_ylabel("Direct-cell RMSE (km/s)"); axis_noise.set_title("(a) Matched timing-noise sensitivity"); axis_noise.grid(alpha=0.25)
+    axis_noise.set_ylim(0.24, 0.47)   # headroom so the legend does not cover the bands
+    axis_noise.legend(loc="upper center")
     # The thresholds are plotted at equally spaced positions rather than at their
     # own values. On a linear axis spanning 0 to 10 km the 0 and 0.1 km
     # thresholds land on top of each other, so two of the five were not
@@ -1682,14 +1717,13 @@ def _plot_noise_coverage(noise: Mapping[str, Any], coverage: Mapping[str, Any], 
         y = [float(row["mean_direct_cell_rmse_km_per_s"]) for row in rows]
         lower = [float(row["mean_direct_cell_rmse_ci95_lower_km_per_s"]) for row in rows]
         upper = [float(row["mean_direct_cell_rmse_ci95_upper_km_per_s"]) for row in rows]
-        axis_coverage.errorbar(x, y, yerr=[np.asarray(y) - np.asarray(lower), np.asarray(upper) - np.asarray(y)], fmt="o-", capsize=3, color=colors[method], label=coverage_labels[method])
+        axis_coverage.errorbar(x, y, yerr=[np.asarray(y) - np.asarray(lower), np.asarray(upper) - np.asarray(y)], fmt="o-", ms=4, capsize=2.5, color=colors[method], label=coverage_labels[method])
     axis_coverage.set_xticks(list(range(len(coverage_thresholds))))
     axis_coverage.set_xticklabels(["%g" % value for value in coverage_thresholds])
-    axis_coverage.set_xlabel("Minimum accumulated reference-ray coverage (km), equally spaced; 0 denotes >0 km"); axis_coverage.set_ylabel("Direct-cell RMSE (km/s)"); axis_coverage.set_title("Coverage-domain diagnostic"); axis_coverage.grid(alpha=0.25)
-    axis_coverage.margins(y=0.16)   # headroom so the legend does not cover the data
-    axis_coverage.tick_params(labelsize=9)
-    axis_coverage.legend(fontsize=9)
-    path = out / "figure_5_coverage_noise.png"; _save_figure(fig, path); plt.close(fig)
+    axis_coverage.set_xlabel("Minimum accumulated Reference-ray coverage (km); equally spaced, 0 denotes >0 km"); axis_coverage.set_ylabel("Direct-cell RMSE (km/s)"); axis_coverage.set_title("(b) Coverage-domain diagnostic"); axis_coverage.grid(alpha=0.25)
+    axis_coverage.margins(y=0.2)   # headroom so the legend does not cover the data
+    axis_coverage.legend(loc="lower left")
+    path = out / "figure_5_coverage_noise.png"; _save_print_figure(fig, path); plt.close(fig)
     return {"png": path.as_posix()}
 
 

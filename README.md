@@ -11,7 +11,7 @@ identifiers are paths within it.
 | | |
 |---|---|
 | Article | *A Discrete Synthetic Benchmark for PCA-Ridge and Reference-Ray 3-D Velocity Reconstruction from First-Arrival Travel Times*, *Applied Sciences* — DOI assigned on publication |
-| Reproducibility archive | [10.5281/zenodo.22733701](https://doi.org/10.5281/zenodo.22733701) |
+| Reproducibility archive | [10.5281/zenodo.22994929](https://doi.org/10.5281/zenodo.22994929) |
 | Licence | CC BY 4.0, matching the article |
 
 ## What the benchmark is
@@ -57,6 +57,15 @@ python scripts/run_matched_prior_reference_ray.py
 python scripts/run_observation_ordering_sensitivity.py
 ```
 
+Version 1.1.0 adds two entry points for the revised article: the shallow MLP coefficient-map
+baseline, and the print-width rendering of Figure 1 and Supplementary Figures S1, S4 and S5,
+which checks its output byte for byte against the deposited files:
+
+```bash
+python scripts/run_mlp_coefficient_map_baseline.py --package <archive-root> --out <fresh-output-file>
+python scripts/render_revision_figures.py --package <archive-root> --corpus-dir <corpus-dir> --check
+```
+
 Sampling and permutation draws depend on the NumPy generator implementation, so the recorded
 seeds reproduce the stored draws only under the pinned NumPy version.
 
@@ -64,7 +73,7 @@ seeds reproduce the stored draws only under the pinned NumPy version.
 
 ```
 src/tomobench/     the package: generation, simulation, tomography, evaluation, datasets
-scripts/           the six entry points the article and the archive name
+scripts/           the eight entry points the article and the archive name
 configs/           the frozen production configuration
 docs/              implementation-level method contracts
 ```
@@ -82,7 +91,7 @@ prefix. The mapping is mechanical:
 ## Relationship to the deposited snapshot
 
 The archive carries a source snapshot under `reproducibility/source/` that mirrors this
-repository — the same 83 modules and the same six entry points, in the monorepo layout. It is
+repository — the same 83 modules and the same eight entry points, in the monorepo layout. It is
 the copy pinned by checksum alongside the data, so the archive is self-contained and its
 regeneration commands can be run from it directly.
 
