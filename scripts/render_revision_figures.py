@@ -1,9 +1,9 @@
-"""Render Figure 1 and Supplementary Figures S1, S4 and S5 at print width.
+"""Render Figures 1-3 and Supplementary Figures S1, S4 and S5 at print width.
 
     python code/scripts/render_revision_figures.py --package PKG            # render and install
     python code/scripts/render_revision_figures.py --package PKG --check    # re-render, compare bytes
 
-Reviewer 1 of applsci-4595434 rated the figures "must be improved". The MDPI
+The review of the submitted article asked for legible figures. The MDPI
 documents place every figure 5.46 in wide, and these four were drawn 9.5 to 15.5 in
 wide at 9 pt, so their labels printed at about 3 pt (S1, S4, S5) and 5 pt
 (Figure 1). The plotting functions in tomobench.evaluation.final_evidence_pass now
@@ -12,6 +12,19 @@ unchanged: the two selection records the functions write are compared byte for
 byte with the deposited ones under records/figures/, and the run fails if either
 differs. Supplementary Figures S2, S3 and S6 already printed at 78-91% scale and
 are not re-rendered.
+
+Figure 3, added to the Results in the revision, plots
+the Table 3 paired comparisons. Values come from records/tables/table_3_paired_comparisons.csv
+and, for the equal-family means, from each comparison's per-target paired deltas; labels
+come from Table 3 of the manuscript. The run fails if the record and the table do not
+have the same rows, or if any plotted value differs from its Table 3 cell by more than
+display rounding, so the figure cannot show a number the table does not.
+
+Figure 2 is the former Supplementary Figure S6 (the same records, marks and jitter seed)
+redrawn at print width without its in-figure title. The archived submitted render,
+records/figures/figure_3_primary_method_comparison.png, is left as it is and is still
+reproduced by render_minor_revision_figures.py. The run fails unless each series has 38
+targets and its mean equals the Table 2 row of the same method to display rounding.
 
 Inputs are the frozen production corpus (for S1 and S4, which draw analytic target
 fields) and the package's own records. The corpus manifest stores the corpus's
@@ -27,6 +40,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import math
 import shutil
 import sys
 import tempfile
@@ -57,6 +71,10 @@ INSTALL = {
         "supplementary_figures/figure_S5_coverage_noise.png",
         "records/figures/figure_5_coverage_noise.png"),
 }
+INSTALL["figure_primary_method_comparison.png"] = ("figures/figure_2_primary_method_comparison.png",
+                                                  "records/figures/figure_primary_method_comparison.png")
+INSTALL["figure_paired_comparisons.png"] = ("figures/figure_3_paired_comparisons.png",
+                                           "records/figures/figure_paired_comparisons.png")
 SELECTIONS = ("figure_4_selection.json", "figure_S1_selection.json")
 
 
@@ -76,6 +94,60 @@ def _use_corpus(corpus: Path) -> None:
     bfa._resolve_repo_path = resolve
 
 
+def _table3(package: Path) -> list[dict]:
+    """Table 3's rows: label from the manuscript, values from the deposited records."""
+    import re
+    ms = next((package / "manuscript").glob("*.md")).read_text(encoding="utf-8")
+    head = ms.index("| Comparison | Mean delta (km/s) |")
+    lines = [l for l in ms[head:ms.index("\n\n", head)].split("\n")[2:] if l.startswith("|")]
+    records = package / "records/tables"
+    rec = _rows(records / "table_3_paired_comparisons.csv")
+    if len(lines) != len(rec):
+        raise SystemExit("Table 3 has %d rows, its record %d" % (len(lines), len(rec)))
+
+    def num(cell: str) -> list[float]:
+        return [float(x) for x in re.findall(r"[-+]?\d*\.\d+|[-+]?\d+", cell.replace("\u2212", "-"))]
+
+    out = []
+    for line, r in zip(lines, rec):
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        deltas: dict[str, list[float]] = {}
+        for x in _rows(records / ("%s_paired_deltas.csv" % r["comparison_id"])):
+            deltas.setdefault(x["family"], []).append(float(x["paired_delta"]))
+        c = {"label": cells[0], "main": r["comparison_id"] == "full_vs_reference_ray",
+             "mean": float(r["mean_delta"]), "lower": float(r["ci95_lower"]), "upper": float(r["ci95_upper"]),
+             "equal_family_mean": sum(sum(v) / len(v) for v in deltas.values()) / len(deltas),
+             "stratified_lower": float(r["family_stratified_ci95_lower"]),
+             "stratified_upper": float(r["family_stratified_ci95_upper"])}
+        shown = num(cells[1]) + num(cells[2]) + num(cells[4]) + num(cells[5])
+        plotted = [c["mean"], c["lower"], c["upper"], c["equal_family_mean"], c["stratified_lower"], c["stratified_upper"]]
+        for s_, p_ in zip(shown, plotted):
+            if abs(s_ - p_) > 0.5 * 10 ** (math.floor(math.log10(abs(s_))) - 2) + 1e-12:
+                raise SystemExit("Table 3 %s shows %s but the record gives %r" % (r["comparison_id"], s_, p_))
+        if len(shown) != 6:
+            raise SystemExit("Table 3 %s: expected 6 values, parsed %d" % (r["comparison_id"], len(shown)))
+        out.append(c)
+    return out
+
+
+# Figure 2 series -> the Table 2 row that reports the same mean
+TABLE2_ROWS = {"realistic_full": "Full-input PCA-ridge",
+               "travel_time_only": "Travel-time-only PCA-ridge (frozen Full-input configuration)",
+               "reference_ray": "Reference-ray baseline"}
+
+
+def _check_figure2(package: Path, drawn: dict) -> None:
+    ms = next((package / "manuscript").glob("*.md")).read_text(encoding="utf-8")
+    for method, label in TABLE2_ROWS.items():
+        line = [l for l in ms.split("\n") if l.startswith("| %s |" % label)]
+        if len(line) != 1:
+            raise SystemExit("Table 2 row %r: found %d" % (label, len(line)))
+        shown = float(line[0].split("|")[2])
+        if drawn["counts"][method] != 38 or abs(drawn["means"][method] - shown) > 5e-4 + 1e-12:
+            raise SystemExit("Figure 2 %s: %d targets, mean %r, Table 2 shows %s"
+                             % (method, drawn["counts"][method], drawn["means"][method], shown))
+
+
 def render(package: Path, corpus: Path, out: Path) -> None:
     records = package / "records"
     _use_corpus(corpus)
@@ -92,6 +164,9 @@ def render(package: Path, corpus: Path, out: Path) -> None:
     fep._plot_workflow(out)
     fep._plot_structural_fields(node_native, test, out)
     fep._plot_supplementary_structure_slices(node_native, out)
+    _check_figure2(package, fep._plot_primary_comparison_print(
+        node_native, {"test_rows": _rows(records / "reference_ray/test_metrics.csv")}, out))
+    fep._plot_paired_comparisons(_table3(package), out)
     fep._plot_noise_coverage({"summary_rows": _rows(records / "noise/summary.csv")},
                              {"coverage_summary": _rows(records / "coverage_structure/coverage_summary.csv")}, out)
     for name in SELECTIONS:

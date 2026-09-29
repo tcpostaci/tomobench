@@ -1259,9 +1259,9 @@ def _figure_style() -> None:
 
 
 # The MDPI documents place every figure 5.46 in wide. Figures drawn 12-15.5 in
-# wide at 9 pt printed their labels at about 3 pt (Reviewer 1: figures "must be
-# improved"). These four are drawn close to the placed width instead, so 8 pt
-# type prints at 7-9 pt. PRINT_WIDTH_IN is that placed width.
+# wide at 9 pt printed their labels at about 3 pt, which the review found too small.
+# These four are drawn close to the placed width instead, so 8 pt type prints at
+# 7-9 pt. PRINT_WIDTH_IN is that placed width.
 PRINT_WIDTH_IN = 5.46
 
 
@@ -1724,6 +1724,87 @@ def _plot_noise_coverage(noise: Mapping[str, Any], coverage: Mapping[str, Any], 
     axis_coverage.margins(y=0.2)   # headroom so the legend does not cover the data
     axis_coverage.legend(loc="lower left")
     path = out / "figure_5_coverage_noise.png"; _save_print_figure(fig, path); plt.close(fig)
+    return {"png": path.as_posix()}
+
+
+def _plot_primary_comparison_print(node_native: Mapping[str, Any], reference_ray: Mapping[str, Any], out: Path) -> dict[str, str]:
+    """Figure 2 at print width: _plot_primary_comparison's data, marks and jitter seed.
+
+    In the revision the former Supplementary Figure S6 moved into the Results. The
+    original, drawn 8.2 in wide at 9 pt with an in-figure title, stays as the
+    archived render of the submitted version; this one drops the title (the
+    caption carries it) and uses the print style of the other revision figures.
+    """
+    import matplotlib.pyplot as plt
+
+    _print_figure_style()
+    test_rows = [row for row in node_native["metric_rows"] if row["split"] == "test"]
+    methods = ["realistic_full", "travel_time_only", "reference_ray"]
+    values = {
+        "realistic_full": [float(row["direct_cell_rmse_km_per_s"]) for row in test_rows if row["method_id"] == "realistic_full"],
+        "travel_time_only": [float(row["direct_cell_rmse_km_per_s"]) for row in test_rows if row["method_id"] == "travel_time_only"],
+        "reference_ray": [float(row["direct_cell_rmse_km_per_s"]) for row in reference_ray["test_rows"]],
+    }
+    labels = {"realistic_full": "Full-input PCA-ridge", "travel_time_only": "Travel-time-only PCA-ridge\n(frozen ablation)",
+              "reference_ray": "Reference-ray baseline"}
+    fig, ax = plt.subplots(figsize=(PRINT_WIDTH_IN, 3.4), constrained_layout=True)
+    ax.boxplot(
+        [values[method] for method in methods],
+        tick_labels=[labels[method] for method in methods],
+        showmeans=False,
+        flierprops={"marker": "o", "markerfacecolor": "none", "markeredgecolor": "#111827", "markersize": 5},
+        medianprops={"color": "#f97316", "linewidth": 1.6},
+        zorder=1,
+    )
+    rng = np.random.default_rng(_stable_seed("figure-3-jitter"))
+    point_colors = {"realistic_full": "#2563eb", "travel_time_only": "#b45309", "reference_ray": "#047857"}
+    for index, method in enumerate(methods, start=1):
+        jitter = rng.uniform(-0.08, 0.08, size=len(values[method]))
+        ax.scatter(np.full(len(values[method]), index, dtype=float) + jitter, values[method],
+                   s=12, alpha=0.62, color=point_colors[method], edgecolor="white", linewidth=0.3, zorder=3)
+        ax.scatter(index, float(np.mean(values[method])), marker="^", s=34, color="#15803d",
+                   edgecolor="white", linewidth=0.5, zorder=4)
+    ax.set_ylabel("Direct-cell RMSE (km/s)")
+    ax.grid(axis="y", alpha=0.25)
+    path = out / "figure_primary_method_comparison.png"; _save_print_figure(fig, path); plt.close(fig)
+    return {"png": path.as_posix(), "means": {m: float(np.mean(values[m])) for m in methods},
+            "counts": {m: len(values[m]) for m in methods}}
+
+
+def _plot_paired_comparisons(comparisons: Sequence[Mapping[str, Any]], out: Path) -> dict[str, str]:
+    """Interval plot of the Table 3 paired comparisons, added to the Results in the revision.
+
+    Each comparison carries its label, the pooled mean delta with its pooled
+    interval, and the equal-family mean with its family-stratified interval, in
+    Table 3's row order; ``main`` marks the main reported comparison. The two
+    estimates are drawn on separate offsets because they are different
+    estimands, as Table 3's caption says.
+    """
+    import matplotlib.pyplot as plt
+
+    _print_figure_style()
+    n = len(comparisons)
+    fig, ax = plt.subplots(figsize=(PRINT_WIDTH_IN, 0.42 * n + 1.0), constrained_layout=True)
+    y = np.arange(n, dtype=float)[::-1]
+    for yy, c in zip(y, comparisons):
+        ax.errorbar(c["mean"], yy + 0.13, xerr=[[c["mean"] - c["lower"]], [c["upper"] - c["mean"]]],
+                    fmt="o", ms=4, color="#1d4ed8", ecolor="#1d4ed8", elinewidth=1.2, capsize=2.5,
+                    label="Pooled mean delta, 95% CI" if yy == y[0] else None)
+        ax.errorbar(c["equal_family_mean"], yy - 0.13,
+                    xerr=[[c["equal_family_mean"] - c["stratified_lower"]], [c["stratified_upper"] - c["equal_family_mean"]]],
+                    fmt="s", ms=3.5, mfc="white", color="#b45309", ecolor="#b45309", elinewidth=1.0, capsize=2.5,
+                    label="Equal-family mean, family-stratified 95% CI" if yy == y[0] else None)
+    ax.axvline(0.0, color="#111827", linewidth=0.8)
+    ax.set_yticks(y)
+    # two lines per label, split at the minus sign, so the labels leave the plot most of the width
+    ax.set_yticklabels([c["label"].replace(" − ", "\n− ", 1) for c in comparisons])
+    for tick, c in zip(ax.get_yticklabels(), comparisons):
+        tick.set_fontweight("bold" if c.get("main") else "normal")
+    ax.set_ylim(-0.7, n - 0.3)
+    ax.set_xlabel("Direct-cell RMSE delta, first method minus second method (km/s)\nnegative values favor the first method")
+    ax.grid(axis="x", alpha=0.25)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, frameon=False)
+    path = out / "figure_paired_comparisons.png"; _save_print_figure(fig, path); plt.close(fig)
     return {"png": path.as_posix()}
 
 

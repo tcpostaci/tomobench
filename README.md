@@ -11,7 +11,7 @@ identifiers are paths within it.
 | | |
 |---|---|
 | Article | *A Discrete Synthetic Benchmark for PCA-Ridge and Reference-Ray 3-D Velocity Reconstruction from First-Arrival Travel Times*, *Applied Sciences* — DOI assigned on publication |
-| Reproducibility archive | [10.5281/zenodo.22994929](https://doi.org/10.5281/zenodo.22994929) |
+| Reproducibility archive | [10.5281/zenodo.23045394](https://doi.org/10.5281/zenodo.23045394) |
 | Licence | CC BY 4.0, matching the article |
 
 ## What the benchmark is
@@ -59,7 +59,9 @@ python scripts/run_observation_ordering_sensitivity.py
 
 Version 1.1.0 adds two entry points for the revised article: the shallow MLP coefficient-map
 baseline, and the print-width rendering of Figure 1 and Supplementary Figures S1, S4 and S5,
-which checks its output byte for byte against the deposited files:
+which checks its output byte for byte against the deposited files. Version 1.2.0 extends that
+script to Figure 2 (the former Supplementary Figure S6, redrawn at print width) and the new
+Figure 3 (the Table 3 paired comparisons), whose plotted values it checks against Tables 2 and 3:
 
 ```bash
 python scripts/run_mlp_coefficient_map_baseline.py --package <archive-root> --out <fresh-output-file>
