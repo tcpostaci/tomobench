@@ -10,7 +10,7 @@ identifiers are paths within it.
 
 | | |
 |---|---|
-| Article | *A Discrete Synthetic Benchmark for PCA-Ridge and Reference-Ray 3-D Velocity Reconstruction from First-Arrival Travel Times*, *Applied Sciences* — DOI assigned on publication |
+| Article | *A Discrete Synthetic Benchmark for PCA-Ridge and Reference-Ray 3-D Velocity Reconstruction from First-Arrival Travel Times*, *Applied Sciences* **16**(19), 9941 (2026), [10.3390/app16199941](https://doi.org/10.3390/app16199941) |
 | Reproducibility archive | [10.5281/zenodo.23045394](https://doi.org/10.5281/zenodo.23045394) |
 | Licence | CC BY 4.0, matching the article |
 
